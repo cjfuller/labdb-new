@@ -73,7 +73,7 @@ func addAuthHeaders(userID string, h http.Header) {
 func proxy(c *gin.Context) {
 	proxyTarget := devProxyTarget
 	if env.Prod {
-		proxyTarget = "https://" + strings.Replace(c.Request.Host, "labdb.io", proxySuffix, -1)
+		proxyTarget = "https://" + strings.Replace(c.Request.Host, ".labdb.io", proxySuffix, -1)
 	}
 	url, err := url.Parse(proxyTarget)
 	if err != nil {
