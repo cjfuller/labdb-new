@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"labdb.org/labdb/env"
+	"labdb.org/labdb/models"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
@@ -120,32 +121,24 @@ func main() {
 	if env.Prod {
 		gin.SetMode(gin.ReleaseMode)
 	}
-	// models.Init()
-	// defer models.Shutdown()
+	models.Init()
+	defer models.Shutdown()
 	r := gin.Default()
 	store := sessions.NewCookieStore([]byte(env.SecretToken))
 	r.Use(redirectHTTPS)
 	r.Use(sessions.Sessions("labdb", store))
-	// r.GET("/plasmids/:id/next", func(c *gin.Context) {
-	// 	id := c.Param("id")
-	// 	pl := models.Plasmid{}
-	// 	models.Db("dev").Where("id > ?", id).Order("id asc").First(&pl)
-	// 	redirectID := id
-	// 	if pl.ID != 0 {
-	// 		redirectID = strconv.FormatUint(uint64(pl.ID), 10)
-	// 	}
-	// 	c.Redirect(307, fmt.Sprintf("/plasmids/%s", redirectID))
-	// })
-	// r.GET("/plasmids/:id/previous", func(c *gin.Context) {
-	// 	id := c.Param("id")
-	// 	pl := models.Plasmid{}
-	// 	models.Db("dev").Where("id < ?", id).Order("id desc").First(&pl)
-	// 	redirectID := id
-	// 	if pl.ID != 0 {
-	// 		redirectID = strconv.FormatUint(uint64(pl.ID), 10)
-	// 	}
-	// 	c.Redirect(307, fmt.Sprintf("/plasmids/%s", redirectID))
-	// })
+	r.GET("/:model/:id/next", func(c *gin.Context) {
+		cls := c.Param("model")
+		id := c.Param("id")
+		redirectID := models.NextID(cls, id)
+		c.Redirect(307, fmt.Sprintf("/%s/%s", cls, redirectID))
+	})
+	r.GET("/:model/:id/previous", func(c *gin.Context) {
+		cls := c.Param("model")
+		id := c.Param("id")
+		redirectID := models.PrevID(cls, id)
+		c.Redirect(307, fmt.Sprintf("/%s/%s", cls, redirectID))
+	})
 	r.POST("/api/verify", func(c *gin.Context) {
 		email := getVerifiedIdentity(c.Query("token"))
 		if email == "" {

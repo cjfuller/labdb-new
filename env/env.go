@@ -8,6 +8,7 @@ var Dev = os.Getenv("DEV") == "1"
 var Prod = !Dev
 var SecretToken string
 var SigningKey string
+var DbURL = os.Getenv("DATABASE_URL")
 
 func Init() {
 	if Dev {
