@@ -96,6 +96,13 @@ func proxy(c *gin.Context) {
 	p.ServeHTTP(c.Writer, c.Request)
 }
 
+func redirectHTTPS(c *gin.Context) {
+	usesTLSOnHeroku := c.Request.Header.Get("X-Forwarded-Proto") == "https"
+	if env.Prod && !usesTLSOnHeroku {
+		c.Redirect(302, strings.Replace(c.Request.RequestURI, "http://", "https://", -1))
+	}
+}
+
 func main() {
 	env.Init()
 	if env.Prod {
@@ -105,6 +112,7 @@ func main() {
 	// defer models.Shutdown()
 	r := gin.Default()
 	store := sessions.NewCookieStore([]byte(env.SecretToken))
+	r.Use(redirectHTTPS)
 	r.Use(sessions.Sessions("labdb", store))
 	// r.GET("/plasmids/:id/next", func(c *gin.Context) {
 	// 	id := c.Param("id")
