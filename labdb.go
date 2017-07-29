@@ -85,7 +85,7 @@ func proxy(c *gin.Context) {
 			c.Request.Header.Del(k)
 		}
 	}
-	c.Request.Header.Del("X-Forward-For")
+	c.Request.Header.Del("X-Forwarded-For")
 	session := sessions.Default(c)
 	maybeID := session.Get("userID")
 	if maybeID != nil {
