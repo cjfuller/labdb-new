@@ -14,7 +14,7 @@ func Init() {
 		SigningKey = "development-key"
 	} else {
 		SigningKey = os.Getenv("SIGNING_KEY")
-		if SecretToken == "" {
+		if SigningKey == "" {
 			panic("Must provide a signing key in prod.")
 		}
 	}
