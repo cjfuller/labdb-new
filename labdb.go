@@ -107,8 +107,12 @@ func proxy(c *gin.Context) {
 func redirectHTTPS(c *gin.Context) {
 	usesTLSOnHeroku := c.Request.Header.Get("X-Forwarded-Proto") == "https"
 	if env.Prod && !usesTLSOnHeroku {
-		c.Redirect(302, strings.Replace(c.Request.RequestURI, "http://", "https://", -1))
+		newTarget := fmt.Sprintf("https://%s%s", c.Request.Host, c.Request.RequestURI)
+		c.Redirect(302, newTarget)
+		c.Abort()
+		return
 	}
+	c.Next()
 }
 
 func main() {
