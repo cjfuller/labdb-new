@@ -80,18 +80,26 @@ func proxy(c *gin.Context) {
 		panic(err)
 	}
 
+	if c.Request.Header.Get("X-Labdb-Forwarded") == "true" {
+		c.String(400, "Stuck in a recursive proxy loop.")
+		return
+	}
+
 	for k := range c.Request.Header {
 		if strings.HasPrefix(strings.ToLower(k), "cf-") {
 			c.Request.Header.Del(k)
 		}
 	}
 	c.Request.Header.Del("X-Forwarded-For")
+	c.Request.Header.Add("X-Labdb-Forwarded", "true")
 	session := sessions.Default(c)
 	maybeID := session.Get("userID")
 	if maybeID != nil {
 		addAuthHeaders(maybeID.(string), c.Request.Header)
 	}
-
+	// Unset the host, as the proxy sets the host using URL.Host, but the value on
+	// the request itself will override it if present.
+	c.Request.Host = ""
 	p := httputil.NewSingleHostReverseProxy(url)
 	p.ServeHTTP(c.Writer, c.Request)
 }
