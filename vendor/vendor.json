@@ -1,0 +1,6 @@
+{
+    "rootPath": "labdb.org/labdb",
+    "heroku": {
+        "sync": false
+    }
+}
