@@ -1,6 +1,7 @@
 package models
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/jinzhu/gorm"
@@ -9,7 +10,12 @@ import (
 	"labdb.org/labdb/env"
 )
 
-var dbByLab = map[string]*gorm.DB{}
+var db *gorm.DB
+
+type Entity interface {
+	model() Model
+	GetID() uint
+}
 
 type Model struct {
 	ID        uint `gorm:"primary_key"`
@@ -17,31 +23,115 @@ type Model struct {
 	UpdatedAt time.Time
 }
 
+func (m *Model) model() Model {
+	return *m
+}
+
+func (m *Model) GetID() uint {
+	return m.ID
+}
+
 type Plasmid struct {
 	Model
-	Name     string
-	Alias    string
-	Sequence string
+}
+
+type Oligo struct {
+	Model
+}
+
+type Line struct {
+	Model
+}
+
+type Sample struct {
+	Model
+}
+
+type Bacterium struct {
+	Model
+}
+
+type Yeaststrain struct {
+	Model
+}
+
+type User struct {
+	Model
+}
+
+type Antibody struct {
+	Model
+}
+
+func Empty(cls string) Entity {
+	switch cls {
+	case "plasmid", "plasmids":
+		return &Plasmid{}
+	case "oligo", "oligos":
+		return &Oligo{}
+	case "line", "lines":
+		return &Line{}
+	case "sample", "samples":
+		return &Sample{}
+	case "bacterium", "bacteria":
+		return &Bacterium{}
+	case "yeaststrain", "yeaststrains":
+		return &Yeaststrain{}
+	case "user", "users":
+		return &User{}
+	case "antibody", "antibodies":
+		return &Antibody{}
+	default:
+		return &Model{}
+	}
+}
+
+func NextID(cls string, currID string) string {
+	ent := Empty(cls)
+	id := Next(ent, currID).GetID()
+	if id != 0 {
+		return strconv.FormatUint(uint64(id), 10)
+	}
+	return currID
+}
+
+func PrevID(cls string, currID string) string {
+	ent := Empty(cls)
+	id := Prev(ent, currID).GetID()
+	if id != 0 {
+		return strconv.FormatUint(uint64(id), 10)
+	}
+	return currID
+}
+
+func Next(e Entity, id string) Entity {
+	db.Where("id > ?", id).Order("id asc").First(e)
+	return e
+}
+
+func Prev(e Entity, id string) Entity {
+	db.Where("id < ?", id).Order("id desc").First(e)
+	return e
 }
 
 func Init() {
-	dbURL := "dbname=labdb"
+	dbURL := env.DbURL
 	if env.Dev {
-		dbURL += " sslmode=disable"
+		dbURL = "dbname=labdb sslmode=disable"
 	}
-	db, err := gorm.Open("postgres", dbURL)
+	pg, err := gorm.Open("postgres", dbURL)
 	if err != nil {
 		panic(err)
 	}
-	dbByLab["dev"] = db
+	db = pg
 }
 
 func Shutdown() {
-	for _, db := range dbByLab {
+	if db != nil {
 		db.Close()
 	}
 }
 
-func Db(lab string) *gorm.DB {
-	return dbByLab[lab]
+func Db() *gorm.DB {
+	return db
 }
