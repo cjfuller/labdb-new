@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -66,6 +67,8 @@ func addAuthHeaders(userID string, h http.Header) {
 	mac := hmac.New(sha256.New, []byte(env.SigningKey))
 	mac.Write([]byte(userID + ts))
 	result := hex.EncodeToString(mac.Sum(nil))
+	// TODO(colin): add this as a field to the normal log line?
+	log.Printf("Verified user is: %s\n", userID)
 	h.Add("X-LabDB-UserId", userID)
 	h.Add("X-LabDB-Signature", result)
 	h.Add("X-LabDB-Signature-Timestamp", ts)
