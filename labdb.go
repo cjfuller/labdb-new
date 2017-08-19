@@ -1,20 +1,14 @@
 package main
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"log"
-	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
-	"time"
 
+	"labdb.org/labdb/auth"
 	"labdb.org/labdb/env"
 	"labdb.org/labdb/models"
 
@@ -24,55 +18,6 @@ import (
 
 var devProxyTarget = "http://localhost:3001"
 var proxySuffix = "-backend.labdb.io"
-var appID = "146923434465-alq7iagpanjvoag20smuirj0ivdtfldk.apps.googleusercontent.com"
-
-type authResponse struct {
-	Aud           string `json:"aud"`
-	EmailVerified string `json:"email_verified"`
-	Email         string `json:"email"`
-}
-
-func getVerifiedIdentity(token string) string {
-	params := url.Values{}
-	params.Set("id_token", token)
-	url := url.URL{
-		Scheme:   "https",
-		Host:     "www.googleapis.com",
-		Path:     "/oauth2/v3/tokeninfo",
-		RawQuery: params.Encode(),
-	}
-	fmt.Println(url.String())
-	resp, err := http.Post(url.String(), "text/plain", strings.NewReader(""))
-	if err != nil || resp.StatusCode != 200 {
-		return ""
-	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		panic(err)
-	}
-	var authResp authResponse
-	err = json.Unmarshal(body, &authResp)
-	if err != nil {
-		panic(err)
-	}
-	if strings.Contains(authResp.Aud, appID) && authResp.EmailVerified == "true" {
-		return authResp.Email
-	}
-	return ""
-}
-
-func addAuthHeaders(userID string, h http.Header) {
-	ts := time.Now().UTC().Format("2006-01-02T15:04:05")
-	mac := hmac.New(sha256.New, []byte(env.SigningKey))
-	mac.Write([]byte(userID + ts))
-	result := hex.EncodeToString(mac.Sum(nil))
-	// TODO(colin): add this as a field to the normal log line?
-	log.Printf("Verified user is: %s\n", userID)
-	h.Add("X-LabDB-UserId", userID)
-	h.Add("X-LabDB-Signature", result)
-	h.Add("X-LabDB-Signature-Timestamp", ts)
-}
 
 func proxy(c *gin.Context) {
 	proxyTarget := devProxyTarget
@@ -96,10 +41,9 @@ func proxy(c *gin.Context) {
 	}
 	c.Request.Header.Del("X-Forwarded-For")
 	c.Request.Header.Add("X-Labdb-Forwarded", "true")
-	session := sessions.Default(c)
-	maybeID := session.Get("userID")
-	if maybeID != nil {
-		addAuthHeaders(maybeID.(string), c.Request.Header)
+	maybeID := auth.CurrentUserID(c)
+	if maybeID != "" {
+		auth.AddAuthHeaders(maybeID, c.Request.Header)
 	}
 	// Unset the host, as the proxy sets the host using URL.Host, but the value on
 	// the request itself will override it if present.
@@ -119,17 +63,91 @@ func redirectHTTPS(c *gin.Context) {
 	c.Next()
 }
 
-func main() {
+func requireAuthorization(c *gin.Context) {
+	u := auth.CurrentUser(c)
+	if u.AuthWrite || (u.AuthRead && c.Request.Method == "GET") {
+		c.Next()
+		return
+	}
+
+	fmt.Printf("Access denied to %+v.\n", u)
+	c.String(403, "Forbidden")
+	c.Abort()
+}
+
+func startup() {
 	env.Init()
 	if env.Prod {
 		gin.SetMode(gin.ReleaseMode)
 	}
 	models.Init()
-	defer models.Shutdown()
+}
+
+func shutdown() {
+	models.Shutdown()
+}
+
+func modelAPI(r *gin.Engine) {
+	apiM := r.Group("/api/v1/m")
+
+	apiM.GET("/:model/:id", func(c *gin.Context) {
+		modelType := c.Param("model")
+		id, err := strconv.Atoi(c.Param("id"))
+		if err != nil {
+			c.String(400, "Bad ID")
+			c.Abort()
+			return
+		}
+		if models.IsImplemented(modelType) {
+			m := models.Empty(modelType)
+			models.GetByID(m, id)
+			if m.GetID() == 0 {
+				c.String(404, "Not found.")
+				c.Abort()
+				return
+			}
+			c.JSON(200, m.AsResourceDef())
+		} else {
+			proxy(c)
+		}
+	})
+
+	apiM.POST("/:model/new", func(c *gin.Context) {
+		modelType := c.Param("model")
+		if models.IsImplemented(modelType) {
+			m := models.Empty(modelType)
+			m.AutoFill(auth.CurrentUser(c).Name)
+			models.Create(m)
+			c.Status(204)
+		} else {
+			proxy(c)
+		}
+	})
+}
+
+func main() {
+	startup()
+	defer shutdown()
 	r := gin.Default()
 	store := sessions.NewCookieStore([]byte(env.SecretToken))
 	r.Use(redirectHTTPS)
 	r.Use(sessions.Sessions("labdb", store))
+	r.POST("/api/verify", func(c *gin.Context) {
+		email := auth.GetVerifiedIdentity(c.Query("token"))
+		if email == "" {
+			c.String(403, "Forbidden")
+		} else {
+			session := sessions.Default(c)
+			session.Set("userID", email)
+			session.Save()
+			c.Redirect(303, "/")
+		}
+	})
+	r.GET("/", proxy)
+
+	// Below here, all routes require authorization.
+	r.Use(requireAuthorization)
+
 	r.GET("/:model/:id/next", func(c *gin.Context) {
 		cls := c.Param("model")
 		id := c.Param("id")
@@ -141,17 +159,6 @@ func main() {
 		id := c.Param("id")
 		redirectID := models.PrevID(cls, id)
 		c.Redirect(307, fmt.Sprintf("/%s/%s", cls, redirectID))
-	})
-	r.POST("/api/verify", func(c *gin.Context) {
-		email := getVerifiedIdentity(c.Query("token"))
-		if email == "" {
-			c.String(403, "Forbidden")
-		} else {
-			session := sessions.Default(c)
-			session.Set("userID", email)
-			session.Save()
-			c.Redirect(303, "/")
-		}
 	})
 
 	r.Use(proxy)

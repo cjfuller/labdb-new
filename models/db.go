@@ -15,6 +15,16 @@ var db *gorm.DB
 type Entity interface {
 	model() Model
 	GetID() uint
+	AutoFill(userName string)
+	GetNumber() int
+	Kind() string
+	GetName() string
+	ShortDesc() string
+	GetCoreLinks() *CoreLinks
+	GetCoreInfoSections() []InfoSection
+	GetSequenceInfo() *SequenceInfo
+	GetSupplementalFields() []FieldDef
+	AsResourceDef() string
 }
 
 type Model struct {
@@ -23,13 +33,18 @@ type Model struct {
 	UpdatedAt time.Time
 }
 
-func (m *Model) model() Model {
-	return *m
-}
-
-func (m *Model) GetID() uint {
-	return m.ID
-}
+func (m *Model) model() Model                       { return *m }
+func (m *Model) GetID() uint                        { return m.ID }
+func (m *Model) AutoFill(userName string)           {}
+func (m *Model) GetNumber() int                     { return int(m.ID) }
+func (m *Model) Kind() string                       { return "" }
+func (m *Model) GetName() string                    { return "" }
+func (m *Model) ShortDesc() string                  { return "" }
+func (m *Model) GetCoreLinks() *CoreLinks           { return nil }
+func (m *Model) GetCoreInfoSections() []InfoSection { return nil }
+func (m *Model) GetSequenceInfo() *SequenceInfo     { return nil }
+func (m *Model) GetSupplementalFields() []FieldDef  { return nil }
+func (m *Model) AsResourceDef() string              { return "" }
 
 type Plasmid struct {
 	Model
@@ -55,10 +70,6 @@ type Yeaststrain struct {
 	Model
 }
 
-type User struct {
-	Model
-}
-
 type Antibody struct {
 	Model
 }
@@ -81,6 +92,10 @@ func Empty(cls string) Entity {
 		return &User{}
 	case "antibody", "antibodies":
 		return &Antibody{}
+	case "rnaiclone", "rnaiclones":
+		return &RNAiClone{}
+	case "seqlib", "seqlibs":
+		return &SeqLib{}
 	default:
 		return &Model{}
 	}
@@ -114,6 +129,21 @@ func Prev(e Entity, id string) Entity {
 	return e
 }
 
+func NextAvailableNumber(e Entity) int {
+	// TODO(colin): possible race here with multiple people creating items of the
+	// same type at the same time.
+	db.Last(e)
+	return e.GetNumber() + 1
+}
+
+func GetByID(e Entity, id int) {
+	db.First(e, id)
+}
+
+func Create(e Entity) {
+	db.Create(e)
+}
+
 func Init() {
 	dbURL := env.DbURL
 	if env.Dev {
@@ -124,6 +154,9 @@ func Init() {
 		panic(err)
 	}
 	db = pg
+
+	db.AutoMigrate(&SeqLib{})
+	db.AutoMigrate(&RNAiClone{})
 }
 
 func Shutdown() {
@@ -134,4 +167,9 @@ func Shutdown() {
 
 func Db() *gorm.DB {
 	return db
+}
+
+func IsImplemented(modelType string) bool {
+	return false
+	//  return (modelType == "rnai_clone") || (modelType == "seq_lib")
 }
