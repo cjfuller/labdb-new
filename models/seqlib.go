@@ -26,3 +26,8 @@ func (r *SeqLib) AutoFill(userName string) {
 func (r *SeqLib) GetNumber() int {
 	return r.Number
 }
+
+func (r *SeqLib) OwnerFieldName() string { return "entered_by" }
+func (r *SeqLib) ShortDesc() string      { return r.Alias }
+func (r *SeqLib) Desc() string           { return r.Description }
+func (r *SeqLib) Sequence() string       { return r.IndexSeq }

@@ -15,3 +15,7 @@ func UserByEmail(email string) User {
 	db.Where(&User{Email: email}).First(&u)
 	return u
 }
+
+func (u *User) OwnerFieldName() string { return "name" }
+func (u *User) ShortDesc() string      { return u.Email }
+func (u *User) Desc() string           { return u.Notes }

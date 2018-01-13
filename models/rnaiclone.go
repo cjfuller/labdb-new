@@ -106,8 +106,13 @@ func (r *RNAiClone) GetName() string {
 	return "RNAiC" + strconv.Itoa(r.GetNumber())
 }
 
+func (r *RNAiClone) OwnerFieldName() string { return "entered_by" }
 func (r *RNAiClone) ShortDesc() string {
 	return r.Alias
+}
+
+func (r *RNAiClone) Desc() string {
+	return r.Description
 }
 
 func (r *RNAiClone) GetCoreLinks() *CoreLinks { return nil }

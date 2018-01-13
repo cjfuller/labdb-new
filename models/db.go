@@ -20,6 +20,9 @@ type Entity interface {
 	Kind() string
 	GetName() string
 	ShortDesc() string
+	Desc() string
+	GetSequence() string
+	OwnerFieldName() string
 	GetCoreLinks() *CoreLinks
 	GetCoreInfoSections() []InfoSection
 	GetSequenceInfo() *SequenceInfo
@@ -40,39 +43,14 @@ func (m *Model) GetNumber() int                     { return int(m.ID) }
 func (m *Model) Kind() string                       { return "" }
 func (m *Model) GetName() string                    { return "" }
 func (m *Model) ShortDesc() string                  { return "" }
+func (m *Model) Desc() string                       { return "" }
+func (m *Model) GetSequence() string                { return "" }
+func (m *Model) OwnerFieldName() string             { return "name" }
 func (m *Model) GetCoreLinks() *CoreLinks           { return nil }
 func (m *Model) GetCoreInfoSections() []InfoSection { return nil }
 func (m *Model) GetSequenceInfo() *SequenceInfo     { return nil }
 func (m *Model) GetSupplementalFields() []FieldDef  { return nil }
 func (m *Model) AsResourceDef() string              { return "" }
-
-type Plasmid struct {
-	Model
-}
-
-type Oligo struct {
-	Model
-}
-
-type Line struct {
-	Model
-}
-
-type Sample struct {
-	Model
-}
-
-type Bacterium struct {
-	Model
-}
-
-type Yeaststrain struct {
-	Model
-}
-
-type Antibody struct {
-	Model
-}
 
 func Empty(cls string) Entity {
 	switch cls {
@@ -101,6 +79,119 @@ func Empty(cls string) Entity {
 	}
 }
 
+type EntityQueryIterator struct {
+	query        *gorm.DB
+	buffer       []Entity
+	bufferOffset int
+	pageOffset   int
+	cls          string
+}
+
+func (eqi *EntityQueryIterator) HasNext() bool {
+	if eqi.buffer != nil && eqi.bufferOffset < len(eqi.buffer) {
+		return true
+	}
+	test := Empty(eqi.cls)
+	eqi.query.Offset(eqi.pageOffset + eqi.bufferOffset).Limit(1).First(test)
+	return test.GetID() > 0
+}
+
+func (eqi *EntityQueryIterator) Next() Entity {
+	pageSize := 100
+	if eqi.buffer == nil || eqi.bufferOffset >= len(eqi.buffer) {
+		eqi.pageOffset += eqi.bufferOffset
+		eqi.bufferOffset = 0
+		page := RunQuery(eqi.cls, eqi.query.Offset(eqi.pageOffset).Limit(pageSize))
+		eqi.buffer = page
+	}
+	result := eqi.buffer[eqi.bufferOffset]
+	eqi.bufferOffset += 1
+	return result
+}
+
+func RunQueryLazy(cls string, db *gorm.DB) *EntityQueryIterator {
+	return &EntityQueryIterator{
+		query:        db,
+		buffer:       nil,
+		bufferOffset: 0,
+		pageOffset:   0,
+		cls:          cls,
+	}
+}
+
+func RunQuery(cls string, db *gorm.DB) []Entity {
+	entityResult := []Entity{}
+	switch cls {
+	case "plasmid", "plasmids":
+		res := []Plasmid{}
+		db.Find(&res)
+		for i, _ := range res {
+			entityResult = append(entityResult, &res[i])
+		}
+	case "oligo", "oligos":
+		res := []Oligo{}
+		db.Find(&res)
+		for i, _ := range res {
+			entityResult = append(entityResult, &res[i])
+		}
+	case "line", "lines":
+		res := []Line{}
+		db.Find(&res)
+		for i, _ := range res {
+			entityResult = append(entityResult, &res[i])
+		}
+	case "sample", "samples":
+		res := []Sample{}
+		db.Find(&res)
+		for i, _ := range res {
+			entityResult = append(entityResult, &res[i])
+		}
+	case "bacterium", "bacteria":
+		res := []Bacterium{}
+		db.Find(&res)
+		for i, _ := range res {
+			entityResult = append(entityResult, &res[i])
+		}
+	case "yeaststrain", "yeaststrains":
+		res := []Yeaststrain{}
+		db.Find(&res)
+		for i, _ := range res {
+			entityResult = append(entityResult, &res[i])
+		}
+	case "user", "users":
+		res := []User{}
+		db.Find(&res)
+		for i, _ := range res {
+			entityResult = append(entityResult, &res[i])
+		}
+	case "antibody", "antibodies":
+		res := []Antibody{}
+		db.Find(&res)
+		for i, _ := range res {
+			entityResult = append(entityResult, &res[i])
+		}
+	case "rnaiclone", "rnaiclones":
+		res := []RNAiClone{}
+		db.Find(&res)
+		for i, _ := range res {
+			entityResult = append(entityResult, &res[i])
+		}
+	case "seqlib", "seqlibs":
+		res := []SeqLib{}
+		db.Find(&res)
+		for i, _ := range res {
+			entityResult = append(entityResult, &res[i])
+		}
+	default:
+		res := []Model{}
+		db.Find(&res)
+		for i, _ := range res {
+			entityResult = append(entityResult, &res[i])
+		}
+	}
+	return entityResult
+}
+
 func NextID(cls string, currID string) string {
 	ent := Empty(cls)
 	id := Next(ent, currID).GetID()
@@ -120,12 +211,12 @@ func PrevID(cls string, currID string) string {
 }
 
 func Next(e Entity, id string) Entity {
-	db.Where("id > ?", id).Order("id asc").First(e)
+	db.Where("id > ?", id).First(e)
 	return e
 }
 
 func Prev(e Entity, id string) Entity {
-	db.Where("id < ?", id).Order("id desc").First(e)
+	db.Where("id < ?", id).Last(e)
 	return e
 }
 
@@ -144,7 +235,7 @@ func Create(e Entity) {
 	db.Create(e)
 }
 
-func Init() {
+func init() {
 	dbURL := env.DbURL
 	if env.Dev {
 		dbURL = "dbname=labdb sslmode=disable"
@@ -157,6 +248,7 @@ func Init() {
 
 	db.AutoMigrate(&SeqLib{})
 	db.AutoMigrate(&RNAiClone{})
+	db.LogMode(env.DebugDB)
 }
 
 func Shutdown() {

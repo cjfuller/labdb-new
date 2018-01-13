@@ -1,16 +1,25 @@
 package main
 
+//go:generate go run tools/genroutes.go
+
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 
 	"labdb.org/labdb/auth"
 	"labdb.org/labdb/env"
 	"labdb.org/labdb/models"
+	"labdb.org/labdb/routes"
+	"labdb.org/labdb/search"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
@@ -19,12 +28,35 @@ import (
 var devProxyTarget = "http://localhost:3001"
 var proxySuffix = "-backend.labdb.io"
 
-func proxy(c *gin.Context) {
-	proxyTarget := devProxyTarget
-	if env.Prod {
-		proxyTarget = "https://" + strings.Replace(c.Request.Host, ".labdb.io", proxySuffix, -1)
+func backendHost(c *gin.Context) string {
+	target := devProxyTarget
+	if env.Dev && os.Getenv("PROXY_TARGET") != "" {
+		target = os.Getenv("PROXY_TARGET")
 	}
-	url, err := url.Parse(proxyTarget)
+	if env.Prod {
+		target = "https://" + strings.Replace(c.Request.Host, ".labdb.io", proxySuffix, -1)
+	}
+	return target
+}
+
+func setupBackendRequest(req *http.Request, maybeCurrentUser string) {
+	for k := range req.Header {
+		if strings.HasPrefix(strings.ToLower(k), "cf-") {
+			req.Header.Del(k)
+		}
+	}
+	req.Header.Del("X-Forwarded-For")
+	req.Header.Add("X-Labdb-Forwarded", "true")
+	if maybeCurrentUser != "" {
+		auth.AddAuthHeaders(maybeCurrentUser, req.Header)
+	}
+	// Unset the host, as the proxy sets the host using URL.Host, but the value on
+	// the request itself will override it if present.
+	req.Host = ""
+}
+
+func proxy(c *gin.Context) {
+	url, err := url.Parse(backendHost(c))
 	if err != nil {
 		panic(err)
 	}
@@ -33,21 +65,7 @@ func proxy(c *gin.Context) {
 		c.String(400, "Stuck in a recursive proxy loop.")
 		return
 	}
-
-	for k := range c.Request.Header {
-		if strings.HasPrefix(strings.ToLower(k), "cf-") {
-			c.Request.Header.Del(k)
-		}
-	}
-	c.Request.Header.Del("X-Forwarded-For")
-	c.Request.Header.Add("X-Labdb-Forwarded", "true")
-	maybeID := auth.CurrentUserID(c)
-	if maybeID != "" {
-		auth.AddAuthHeaders(maybeID, c.Request.Header)
-	}
-	// Unset the host, as the proxy sets the host using URL.Host, but the value on
-	// the request itself will override it if present.
-	c.Request.Host = ""
+	setupBackendRequest(c.Request, auth.CurrentUserID(c))
 	p := httputil.NewSingleHostReverseProxy(url)
 	p.ServeHTTP(c.Writer, c.Request)
 }
@@ -76,11 +94,9 @@ func requireAuthorization(c *gin.Context) {
 }
 
 func startup() {
-	env.Init()
 	if env.Prod {
 		gin.SetMode(gin.ReleaseMode)
 	}
-	models.Init()
 }
 
 func shutdown() {
@@ -148,23 +164,70 @@ func main() {
 	// Below here, all routes require authorization.
 	r.Use(requireAuthorization)
 
-	r.GET("/:model/:id/next", func(c *gin.Context) {
-		cls := c.Param("model")
-		id := c.Param("id")
-		redirectID := models.NextID(cls, id)
-		c.Redirect(307, fmt.Sprintf("/%s/%s", cls, redirectID))
+	r.GET("/search", func(c *gin.Context) {
+		term := c.Query("term")
+		seq := c.Query("seq")
+		person := c.Query("person")
+		includeSeq := false
+		if seq == "1" {
+			includeSeq = true
+		}
+		types := []string{}
+		err := json.Unmarshal([]byte(c.Query("types")), &types)
+		if err != nil || term == "" {
+			c.String(400, "Invalid search query")
+		}
+		results, err := search.Search(term, includeSeq, person, types)
+		if err != nil {
+			panic(err)
+		}
+		query := [][]interface{}{}
+		for _, entity := range results {
+			query = append(query, []interface{}{reflect.Indirect(reflect.ValueOf(entity)).Type().Name(), entity.GetID()})
+		}
+		queryBytes, err := json.Marshal(map[string]interface{}{"items": query})
+		if err != nil {
+			panic(err)
+		}
+		url, err := url.Parse(backendHost(c))
+		if err != nil {
+			panic(err)
+		}
+		req, err := http.NewRequest("POST", "/search_result", bytes.NewReader(queryBytes))
+		if err != nil {
+			panic(err)
+		}
+		setupBackendRequest(req, auth.CurrentUserID(c))
+		req.Host = url.Host
+		req.URL.Host = url.Host
+		req.Header.Set("Content-Type", "application/json")
+		if env.Dev {
+			req.URL.Scheme = "http"
+		} else {
+			req.URL.Scheme = "https"
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			panic(err)
+		}
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			panic(err)
+		}
+		c.Header("Content-Type", "text/html; charset=utf-8")
+		c.Writer.Write(body)
 	})
-	r.GET("/:model/:id/previous", func(c *gin.Context) {
-		cls := c.Param("model")
-		id := c.Param("id")
-		redirectID := models.PrevID(cls, id)
-		c.Redirect(307, fmt.Sprintf("/%s/%s", cls, redirectID))
-	})
+
+	routes.InstallAll(r)
 
 	r.Use(proxy)
 
 	if env.Dev {
-		r.Run(":3000")
+		port := os.Getenv("PORT")
+		if port == "" {
+			port = "3000"
+		}
+		r.Run(":" + port)
 	} else {
 		r.Run(":" + os.Getenv("PORT"))
 	}

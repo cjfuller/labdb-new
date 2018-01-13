@@ -1,0 +1,4 @@
+func install{{.MType}}(r *gin.Engine) {
+	r.GET("/{{.MType}}/:id/next", nextRoute("{{.MType}}"))
+    r.GET("/{{.MType}}/:id/previous", previousRoute("{{.MType}}"))
+}

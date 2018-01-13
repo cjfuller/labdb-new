@@ -68,9 +68,13 @@ func GetVerifiedIdentity(token string) string {
 		panic(err)
 	}
 	var authResp authResponse
-	fmt.Printf("Body: %+v\n", string(body))
+	if env.Dev {
+		fmt.Printf("Body: %+v\n", string(body))
+	}
 	err = json.Unmarshal(body, &authResp)
-	fmt.Printf("Auth resp: %+v\n", authResp)
+	if env.Dev {
+		fmt.Printf("Auth resp: %+v\n", authResp)
+	}
 	if err != nil {
 		panic(err)
 	}

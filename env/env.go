@@ -9,8 +9,9 @@ var Prod = !Dev
 var SecretToken string
 var SigningKey string
 var DbURL = os.Getenv("DATABASE_URL")
+var DebugDB = os.Getenv("DB_DEBUG") == "1"
 
-func Init() {
+func init() {
 	if Dev {
 		SigningKey = "development-key"
 	} else {
