@@ -176,10 +176,12 @@ func main() {
 		err := json.Unmarshal([]byte(c.Query("types")), &types)
 		if err != nil || term == "" {
 			c.String(400, "Invalid search query")
+			return
 		}
 		results, err := search.Search(term, includeSeq, person, types)
 		if err != nil {
-			panic(err)
+			c.String(400, "Invalid search query")
+			return
 		}
 		query := [][]interface{}{}
 		for _, entity := range results {
