@@ -202,6 +202,9 @@ func main() {
 		req.URL.Host = url.Host
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-CSRF-Token", c.Request.Header.Get("X-CSRF-Token"))
+		for _, c := range c.Request.Cookies() {
+			req.AddCookie(c)
+		}
 		if env.Dev {
 			req.URL.Scheme = "http"
 		} else {
