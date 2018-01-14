@@ -201,6 +201,7 @@ func main() {
 		req.Host = url.Host
 		req.URL.Host = url.Host
 		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-CSRF-Token", c.Request.Header.Get("X-CSRF-Token"))
 		if env.Dev {
 			req.URL.Scheme = "http"
 		} else {
