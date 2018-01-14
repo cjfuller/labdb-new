@@ -185,7 +185,10 @@ func main() {
 		for _, entity := range results {
 			query = append(query, []interface{}{reflect.Indirect(reflect.ValueOf(entity)).Type().Name(), entity.GetID()})
 		}
-		queryBytes, err := json.Marshal(map[string]interface{}{"items": query})
+		// In addition to the searched items, we also send up the raw term to
+		// check if it's a direct reference to an item (which we can't do in
+		// the frontend yet).
+		queryBytes, err := json.Marshal(map[string]interface{}{"items": query, "term": term})
 		if err != nil {
 			panic(err)
 		}
