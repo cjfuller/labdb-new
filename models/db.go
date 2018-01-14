@@ -70,9 +70,9 @@ func Empty(cls string) Entity {
 		return &User{}
 	case "antibody", "antibodies":
 		return &Antibody{}
-	case "rnaiclone", "rnaiclones":
+	case "rnaiclone", "rnaiclones", "rnai_clone", "rnai_clones":
 		return &RNAiClone{}
-	case "seqlib", "seqlibs":
+	case "seqlib", "seqlibs", "seq_lib", "seq_libs":
 		return &SeqLib{}
 	default:
 		return &Model{}
@@ -170,13 +170,13 @@ func RunQuery(cls string, db *gorm.DB) []Entity {
 		for i, _ := range res {
 			entityResult = append(entityResult, &res[i])
 		}
-	case "rnaiclone", "rnaiclones":
+	case "rnaiclone", "rnaiclones", "rnai_clone", "rnai_clones":
 		res := []RNAiClone{}
 		db.Find(&res)
 		for i, _ := range res {
 			entityResult = append(entityResult, &res[i])
 		}
-	case "seqlib", "seqlibs":
+	case "seqlib", "seqlibs", "seq_lib", "seq_libs":
 		res := []SeqLib{}
 		db.Find(&res)
 		for i, _ := range res {

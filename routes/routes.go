@@ -19,10 +19,10 @@ func InstallAll(r *gin.Engine) {
 	installusers(r)
 	installantibody(r)
 	installantibodies(r)
-	installrnaiclone(r)
-	installrnaiclones(r)
-	installseqlib(r)
-	installseqlibs(r)
+	installrnai_clone(r)
+	installrnai_clones(r)
+	installseq_lib(r)
+	installseq_libs(r)
 
 }
 func installplasmid(r *gin.Engine) {
@@ -89,19 +89,19 @@ func installantibodies(r *gin.Engine) {
 	r.GET("/antibodies/:id/next", nextRoute("antibodies"))
 	r.GET("/antibodies/:id/previous", previousRoute("antibodies"))
 }
-func installrnaiclone(r *gin.Engine) {
-	r.GET("/rnaiclone/:id/next", nextRoute("rnaiclone"))
-	r.GET("/rnaiclone/:id/previous", previousRoute("rnaiclone"))
+func installrnai_clone(r *gin.Engine) {
+	r.GET("/rnai_clone/:id/next", nextRoute("rnai_clone"))
+	r.GET("/rnai_clone/:id/previous", previousRoute("rnai_clone"))
 }
-func installrnaiclones(r *gin.Engine) {
-	r.GET("/rnaiclones/:id/next", nextRoute("rnaiclones"))
-	r.GET("/rnaiclones/:id/previous", previousRoute("rnaiclones"))
+func installrnai_clones(r *gin.Engine) {
+	r.GET("/rnai_clones/:id/next", nextRoute("rnai_clones"))
+	r.GET("/rnai_clones/:id/previous", previousRoute("rnai_clones"))
 }
-func installseqlib(r *gin.Engine) {
-	r.GET("/seqlib/:id/next", nextRoute("seqlib"))
-	r.GET("/seqlib/:id/previous", previousRoute("seqlib"))
+func installseq_lib(r *gin.Engine) {
+	r.GET("/seq_lib/:id/next", nextRoute("seq_lib"))
+	r.GET("/seq_lib/:id/previous", previousRoute("seq_lib"))
 }
-func installseqlibs(r *gin.Engine) {
-	r.GET("/seqlibs/:id/next", nextRoute("seqlibs"))
-	r.GET("/seqlibs/:id/previous", previousRoute("seqlibs"))
+func installseq_libs(r *gin.Engine) {
+	r.GET("/seq_libs/:id/next", nextRoute("seq_libs"))
+	r.GET("/seq_libs/:id/previous", previousRoute("seq_libs"))
 }

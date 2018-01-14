@@ -26,8 +26,8 @@ var allTypes = []string{
 	"yeaststrain",
 	"user",
 	"antibody",
-	"rnaiclone",
-	"seqlib",
+	"rnai_clone",
+	"seq_lib",
 }
 
 var plurals = map[string]string{
