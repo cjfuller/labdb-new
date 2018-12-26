@@ -24,6 +24,7 @@ func Search(term string, includeSequence bool, person string, types []string) ([
 			caseInsensitive = true
 			normTerm = strings.Replace(normTerm, "/i", "", -1)
 			normTerm = strings.Replace(normTerm, "/", "", -1)
+			normTerm = strings.ToLower(normTerm)
 		} else if strings.HasSuffix(normTerm, "/") {
 			normTerm = strings.Replace(normTerm, "/", "", -1)
 		} else {
