@@ -1,5 +1,5 @@
 module labdb.org/labdb
-// +heroku goVersion go1.11
+// +heroku goVersion go1.20
 
 require (
 	github.com/boj/redistore v0.0.0-20160128113310-fc113767cd6b

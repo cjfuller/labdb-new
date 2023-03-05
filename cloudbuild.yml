@@ -1,0 +1,9 @@
+steps:
+- name: 'gcr.io/cloud-builders/docker'
+  args:
+    - 'build'
+    - '-t'
+    - 'northamerica-northeast1-docker.pkg.dev/labdb-io/labdb/labdb-frontend:$SHORT_SHA'
+    - '.'
+images:
+- 'northamerica-northeast1-docker.pkg.dev/labdb-io/labdb/labdb-frontend:$SHORT_SHA'
