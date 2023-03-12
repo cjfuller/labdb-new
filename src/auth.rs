@@ -21,6 +21,7 @@ use sqlx::{PgConnection, PgPool};
 use tokio::sync::RwLock;
 
 use crate::errors::{Error, Result};
+use crate::http_client;
 
 const APP_ID: &str = "146923434465-alq7iagpanjvoag20smuirj0ivdtfldk.apps.googleusercontent.com";
 
@@ -199,20 +200,70 @@ impl<S: Send + Sync> FromRequestParts<S> for User {
     }
 }
 
+#[derive(Clone, Debug, Deserialize)]
+struct IdentityResponse {
+    aud: String,
+    email_verified: String,
+    email: String,
+}
+
+async fn get_verified_identity(token: &str) -> Result<Option<String>> {
+    let verify_request = Request::builder()
+        .method("POST")
+        .uri(format!(
+            "https://www.googleapis.com/oauth2/v3/tokeninfo?id_token={}",
+            urlencoding::encode(token)
+        ))
+        .header("Content-Length", 0)
+        .body(hyper::Body::empty())
+        .unwrap();
+
+    let mut verify_response = http_client().request(verify_request).await?;
+    let id_response: IdentityResponse = if verify_response.status().is_success() {
+        serde_json::from_slice(&hyper::body::to_bytes(verify_response.body_mut()).await?)?
+    } else {
+        log::error!(
+            "Got error from identity verifier: {} {}",
+            verify_response.status().as_u16(),
+            String::from_utf8(
+                hyper::body::to_bytes(verify_response.body_mut())
+                    .await?
+                    .to_vec()
+            )
+            .unwrap_or_else(|_| "<Non-text response body>".into())
+        );
+        return Err(Error::str("Got error from identity verifier"));
+    };
+    if id_response.aud.contains(APP_ID) && &id_response.email_verified == "true" {
+        Ok(Some(id_response.email))
+    } else {
+        Ok(None)
+    }
+}
+
 // POST /api/verify
 pub async fn post_api_verify(
     Query(params): Query<HashMap<String, String>>,
     mut session: WritableSession,
 ) -> Result<Response> {
-    let Some(token) = params.get("jwt") else {
-        return Ok((StatusCode::BAD_REQUEST, "No auth token provided").into_response());
-    };
-    match get_verified_token_email(token).await {
-        Err(e) => Ok((StatusCode::FORBIDDEN, format!("Forbidden: {e}")).into_response()),
-        Ok(verified) => {
-            session.insert("user_id", verified)?;
-            Ok(Redirect::to("/").into_response())
+    if let Some(token) = params.get("jwt") {
+        match get_verified_token_email(token).await {
+            Err(e) => Ok((StatusCode::FORBIDDEN, format!("Forbidden: {e}")).into_response()),
+            Ok(verified) => {
+                session.insert("user_id", verified)?;
+                Ok(Redirect::to("/").into_response())
+            }
         }
+    } else if let Some(token) = params.get("token") {
+        match get_verified_identity(token).await? {
+            None => Ok((StatusCode::FORBIDDEN, "Forbidden").into_response()),
+            Some(verified) => {
+                session.insert("user_id", verified)?;
+                Ok(Redirect::to("/").into_response())
+            }
+        }
+    } else {
+        return Ok((StatusCode::BAD_REQUEST, "No auth token provided").into_response());
     }
 }
 
