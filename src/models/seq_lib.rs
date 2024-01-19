@@ -37,7 +37,7 @@ impl super::SearchModel for SeqLib {
     }
 
     fn short_desc(&self) -> &str {
-        &self.alias.as_deref().unwrap_or_default()
+        self.alias.as_deref().unwrap_or_default()
     }
 
     fn description_field_name() -> &'static str {
@@ -45,7 +45,7 @@ impl super::SearchModel for SeqLib {
     }
 
     fn description(&self) -> &str {
-        &self.description.as_deref().unwrap_or_default()
+        self.description.as_deref().unwrap_or_default()
     }
 
     fn sequence_field_name() -> Option<&'static str> {

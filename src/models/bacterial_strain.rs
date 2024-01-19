@@ -39,7 +39,7 @@ impl super::SearchModel for BacterialStrain {
     }
 
     fn short_desc(&self) -> &str {
-        &self.strainalias.as_deref().unwrap_or_default()
+        self.strainalias.as_deref().unwrap_or_default()
     }
 
     fn description_field_name() -> &'static str {
@@ -47,7 +47,7 @@ impl super::SearchModel for BacterialStrain {
     }
 
     fn description(&self) -> &str {
-        &self.comments.as_deref().unwrap_or_default()
+        self.comments.as_deref().unwrap_or_default()
     }
 
     fn sequence_field_name() -> Option<&'static str> {

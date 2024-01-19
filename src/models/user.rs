@@ -36,7 +36,7 @@ impl super::SearchModel for User {
     }
 
     fn short_desc(&self) -> &str {
-        &self.email.as_deref().unwrap_or_default()
+        self.email.as_deref().unwrap_or_default()
     }
 
     fn description_field_name() -> &'static str {
@@ -44,7 +44,7 @@ impl super::SearchModel for User {
     }
 
     fn description(&self) -> &str {
-        &self.notes.as_deref().unwrap_or_default()
+        self.notes.as_deref().unwrap_or_default()
     }
 
     fn sequence_field_name() -> Option<&'static str> {

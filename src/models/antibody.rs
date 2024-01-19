@@ -46,7 +46,7 @@ impl super::SearchModel for Antibody {
     }
 
     fn description(&self) -> &str {
-        &self.comments.as_deref().unwrap_or_default()
+        self.comments.as_deref().unwrap_or_default()
     }
 
     fn sequence_field_name() -> Option<&'static str> {

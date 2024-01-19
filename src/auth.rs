@@ -65,9 +65,13 @@ async fn fetch_and_cache_google_keys() -> Result<ParsedKeys> {
             log::error!("Ignoring google key with algorithm {}", key.alg);
             continue;
         }
-        let Ok(n) = engine.decode(&key.n) else { continue };
+        let Ok(n) = engine.decode(&key.n) else {
+            continue;
+        };
 
-        let Ok(e) = engine.decode(&key.e) else { continue };
+        let Ok(e) = engine.decode(&key.e) else {
+            continue;
+        };
         match RS256PublicKey::from_components(&n, &e) {
             Ok(parsed) => {
                 let parsed = parsed.with_key_id(&key.kid);
@@ -121,8 +125,9 @@ async fn get_verified_token_email(token_string: &str) -> Result<String> {
 }
 
 pub fn add_auth_headers(user_id: &str, headers: &mut HeaderMap) {
-    let time = chrono::Utc::now().format("%FT%T").to_string();
+    let time = chrono::Utc::now().format("%FT%T%z").to_string();
     let mut mac = hmac::Hmac::<Sha256>::new_from_slice(crate::env::SIGNING_KEY.as_bytes()).unwrap();
+    println!("{}", &*crate::env::SIGNING_KEY);
     mac.update(format!("{user_id}{time}").as_bytes());
     let result = hex::encode(mac.finalize().into_bytes());
     headers.insert("X-LabDB-UserId", user_id.parse().unwrap());
@@ -154,7 +159,8 @@ impl Permission {
 impl User {
     pub async fn verify_in_db(&self, conn: &mut PgConnection, permission: Permission) -> bool {
         let Some(user) = crate::models::User::find_by_email(conn, &self.user_id).await else {
-            return false};
+            return false;
+        };
         match permission {
             Permission::Read => user.auth_read.unwrap_or_default(),
             Permission::Write => user.auth_write.unwrap_or_default(),

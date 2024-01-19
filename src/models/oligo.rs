@@ -37,7 +37,7 @@ impl super::SearchModel for Oligo {
     }
 
     fn short_desc(&self) -> &str {
-        &self.oligoalias.as_deref().unwrap_or_default()
+        self.oligoalias.as_deref().unwrap_or_default()
     }
 
     fn description_field_name() -> &'static str {
@@ -45,7 +45,7 @@ impl super::SearchModel for Oligo {
     }
 
     fn description(&self) -> &str {
-        &self.purpose.as_deref().unwrap_or_default()
+        self.purpose.as_deref().unwrap_or_default()
     }
 
     fn sequence_field_name() -> Option<&'static str> {

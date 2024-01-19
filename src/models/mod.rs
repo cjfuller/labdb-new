@@ -7,6 +7,7 @@ use crate::errors::Result;
 pub mod antibody;
 pub mod bacterial_strain;
 pub mod cell_line;
+pub mod dino;
 pub mod oligo;
 pub mod plasmid;
 pub mod rnai_clone;
@@ -143,6 +144,10 @@ macro_rules! model_eval {
             }
             "seqlib" | "seqlibs" | "seq_lib" | "seq_libs" => {
                 type $typevar = $crate::models::seq_lib::SeqLib;
+                $code
+            }
+            "dino" | "dinos" => {
+                type $typevar = $crate::models::dino::Dino;
                 $code
             }
             _ => Err($crate::errors::Error::str(format!(

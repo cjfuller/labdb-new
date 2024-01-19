@@ -1,39 +1,36 @@
 use sqlx::FromRow;
 
-use super::{ModelID, SearchModel};
-
 #[derive(Clone, Debug, FromRow)]
 #[allow(dead_code)]
-pub struct Plasmid {
-    pub id: i32,
+pub struct Dino {
+    pub id: i64,
     pub alias: Option<String>,
     pub description: Option<String>,
-    pub sequence: Option<String>,
-    pub creator: Option<String>,
+    pub entered_by: Option<String>,
 }
 
-impl SearchModel for Plasmid {
+impl super::SearchModel for Dino {
     fn table_name() -> &'static str {
-        "plasmids"
+        "dinos"
     }
 
     fn model_name() -> &'static str {
-        "Plasmid"
+        "Dino"
     }
 
     fn selects() -> Vec<&'static str> {
-        vec!["id", "alias", "description", "sequence", "creator"]
+        vec!["id", "alias", "entered_by", "description"]
     }
 
-    fn id(&self) -> ModelID {
-        ModelID {
+    fn id(&self) -> super::ModelID {
+        super::ModelID {
             kind: Self::model_name(),
-            id: self.id,
+            id: self.id as i32,
         }
     }
 
     fn owner_field_name() -> &'static str {
-        "creator"
+        "entered_by"
     }
 
     fn short_desc_field_name() -> &'static str {
@@ -53,10 +50,10 @@ impl SearchModel for Plasmid {
     }
 
     fn sequence_field_name() -> Option<&'static str> {
-        Some("sequence")
+        None
     }
 
     fn sequence(&self) -> Option<&str> {
-        self.sequence.as_deref()
+        None
     }
 }
